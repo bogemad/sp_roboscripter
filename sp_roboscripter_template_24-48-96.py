@@ -58,7 +58,7 @@ def main():
     if args.EDTATubeColour == 'Blue':
         outscript = outscript.replace("blue_cap_EDTA = False", "blue_cap_EDTA = True")
 
-    with open(outfile, 'w') as outhandle:
+    with open(outfile, 'w', encoding='utf-8') as outhandle:
         outhandle.write(outscript)
 
 #with open("/home/bogemad/scripts/sangopore_robotics/sp_robotics_template_24-48-96.py") as tmp_handle:
