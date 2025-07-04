@@ -8,12 +8,15 @@ def main():
     parser = GooeyParser(description="Sangopore RoboScriptor. Generate scripts to run the Sangopore protocol on the OpenTrons OT-2.")
     parser.add_argument('CSVfile', help="Location of the CSV formatted submission sheet", widget="FileChooser")
     parser.add_argument('Script', help="Name of output Sangopore Roboscript", widget="FileSaver")
+    parser.add_argument('RunID', help="Enter the Sangopore Run ID", action="store")
     parser.add_argument('--DNAControlSample', help="Tick you want DNA Control Sample added to library", action="store_true")
-    parser.add_argument('--EDTATubeColour', help="Colour of the EDTA tube cap in the Native barcoding kit 96", choices=['Blue', 'Clear'], default='Clear')
+    parser.add_argument('EDTATubeColour', help="Colour of the EDTA tube cap in the Native barcoding kit 96", choices=['Blue', 'Clear'], default='Clear')
     args = parser.parse_args()
     incsv = args.CSVfile
     outfile = args.Script
-
+    if not outfile.endswith(".py"):
+        outfile = outfile + ".py"
+    
     with open(incsv) as inhandle:
         csvr = csv.reader(inhandle)
 
@@ -52,6 +55,7 @@ def main():
             sys.exit("Error - Mismatch in critical values. Ensure that all rows in CSV are completely filled with correct values.")
 
     outscript = template.replace("sample_d = False", f"sample_d = {str(outd)}")
+    outscript = outscript.replace("RUNID Sangopore Library Prep", f"{args.RunID} Sangopore Library Prep")
     if args.DNAControlSample == True:
         outscript = outscript.replace("dna_control_sample = False", "dna_control_sample = True")
 
@@ -65,6 +69,8 @@ def main():
 #    template = tmp_handle.read()
 template = """REPLACE_ME_1
 """
+
+
 
 if __name__ == "__main__":
     main()

@@ -8,8 +8,8 @@ from opentrons import protocol_api
 #Metadata section required for OpenTron scripts; won't work without it
 metadata = {
     "apiLevel":"2.3",
-    "protocolName":"Nanopore Native Barcoding 96 Library Prep",
-    "description":"Script for end prep step",
+    "protocolName":"RUNID Sangopore Library Prep",
+    "description":"Sangopore Library Prep OpenTrons Protocol",
     "author": "Joshua Bourke"
 }
 #Requirements section not strictly required, but encouraged as best practice
@@ -32,7 +32,7 @@ def run(protocol: protocol_api.ProtocolContext):
     if numberOfSamples <= 24:
         tipsSmall = protocol.load_labware("opentrons_96_filtertiprack_20ul",10)
         tipsLarge = protocol.load_labware("opentrons_96_filtertiprack_200ul",11)
-        tubeRack = protocol.load_labware("opentrons_24_tuberack_nest_1.5ml_snapcap",6)
+        tubeRack = protocol.load_labware("opentrons_24_aluminumblock_nest_1.5ml_snapcap",6)
         samplePlate = protocol.load_labware("nest_96_wellplate_100ul_pcr_full_skirt", 2)
         barcodePlate = protocol.load_labware("nest_96_wellplate_100ul_pcr_full_skirt",3)
         temperatureModule = protocol.load_module("temperature module gen2",1)
@@ -42,7 +42,7 @@ def run(protocol: protocol_api.ProtocolContext):
         tipsSmall = protocol.load_labware("opentrons_96_filtertiprack_20ul",10)
         tipsSmall2= protocol.load_labware("opentrons_96_filtertiprack_20ul",9)
         tipsLarge = protocol.load_labware("opentrons_96_filtertiprack_200ul",11)
-        tubeRack = protocol.load_labware("opentrons_24_tuberack_nest_1.5ml_snapcap",6)
+        tubeRack = protocol.load_labware("opentrons_24_aluminumblock_nest_1.5ml_snapcap",6)
         samplePlate = protocol.load_labware("nest_96_wellplate_100ul_pcr_full_skirt", 2)
         barcodePlate = protocol.load_labware("nest_96_wellplate_100ul_pcr_full_skirt",3)
         reactionPrepPlate = protocol.load_labware("nest_96_wellplate_100ul_pcr_full_skirt",4)
@@ -55,7 +55,7 @@ def run(protocol: protocol_api.ProtocolContext):
         tipsSmall3= protocol.load_labware("opentrons_96_filtertiprack_20ul",8)
         tipsSmall4= protocol.load_labware("opentrons_96_filtertiprack_20ul",7)
         tipsLarge = protocol.load_labware("opentrons_96_filtertiprack_200ul",11)
-        tubeRack = protocol.load_labware("opentrons_24_tuberack_nest_1.5ml_snapcap",6)
+        tubeRack = protocol.load_labware("opentrons_24_aluminumblock_nest_1.5ml_snapcap",6)
         samplePlate = protocol.load_labware("nest_96_wellplate_100ul_pcr_full_skirt", 2)
         barcodePlate = protocol.load_labware("nest_96_wellplate_100ul_pcr_full_skirt",3)
         reactionPrepPlate = protocol.load_labware("nest_96_wellplate_100ul_pcr_full_skirt",4)
@@ -78,6 +78,20 @@ def run(protocol: protocol_api.ProtocolContext):
     DCS_vol = buffered_num_samples * 1.0
     EPRB_vol = buffered_num_samples * 1.75
     EPE_vol = buffered_num_samples * 0.75
+    if EPE_vol < 20.0:
+        EPE_vol = 20.0
+        EPRB_vol = 46.7
+        DCS_vol = 26.7
+
+
+    #Pause at beginning to give user information on volumes to load
+    protocol.comment("Please add {EPRB_vol} uL of End prep reaction buffer to well A1.")
+    protocol.comment("Please add {EPE_vol} uL of End prep enzyme to well A2.")
+    if dna_control_sample == True:
+        protocol.comment("Please add {DCS_vol} uL of Diluted DNA control sample to well C1.")
+    protocol.pause(f"USER INTERVENTION: Add volumes listed above and start the protocol")
+
+
     #End prep reaction buffer - 1.75uL   
     right_pipette.transfer(
         volume=EPRB_vol,
@@ -85,12 +99,19 @@ def run(protocol: protocol_api.ProtocolContext):
         dest=tubeRack["D1"],
     )
     #End prep enzyme - 0.75uL   
-    right_pipette.transfer(
-        volume=EPE_vol,
-        source=tubeRack["A2"],
-        dest=tubeRack["D1"],
-        mix_after=(5, (EPRB_vol+EPE_vol)*mix_proportion)
-    )
+    # right_pipette.transfer(
+    #     volume=EPE_vol,
+    #     source=tubeRack["A2"],
+    #     dest=tubeRack["D1"],
+    #     mix_after=(5, (EPRB_vol+EPE_vol)*mix_proportion)
+    # )
+    right_pipette.pick_up_tip()
+    right_pipette.aspirate(EPE_vol, tubeRack["A2"], rate=4.0)
+    protocol.delay(seconds=5)
+    right_pipette.dispense(EPE_vol, tubeRack["D1"], rate=4.0)
+    right_pipette.mix(5,(EPRB_vol+EPE_vol)*mix_proportion, tubeRack["D1"])
+    right_pipette.drop_tip()
+
     #Diluted DNA control sample - 1uL (add if necessary)
     if dna_control_sample == True:
         right_pipette.transfer(
@@ -104,13 +125,16 @@ def run(protocol: protocol_api.ProtocolContext):
         MM_sample_vol = 2.5
 
     #consolidate water, MM and sample in tip, transfer to reaction plate and mix
+    temperatureModule.set_temperature(celsius=4)
     for i, barcode in enumerate(fixed_barcodes):
-        if float(sample_d['water_volumes'][i]) == 0.0:
-            sources = [tubeRack["D1"],samplePlate.wells()[i]]
-            source_volumes = [MM_sample_vol, float(sample_d['pcr_volumes'][i])]
-        else:
-            sources = [tubeRack["D5"],tubeRack["D1"],samplePlate.wells()[i]]
-            source_volumes = [float(sample_d['water_volumes'][i]), MM_sample_vol, float(sample_d['pcr_volumes'][i])]
+        # if float(sample_d['water_volumes'][i]) == 0.0:
+        #     sources = [tubeRack["D1"],samplePlate.wells()[i]]
+        #     source_volumes = [MM_sample_vol, float(sample_d['pcr_volumes'][i])]
+        # else:
+        #     sources = [tubeRack["D5"],tubeRack["D1"],samplePlate.wells()[i]]
+        #     source_volumes = [float(sample_d['water_volumes'][i]), MM_sample_vol, float(sample_d['pcr_volumes'][i])]
+        sources = [tubeRack["D1"],samplePlate.wells()[i]]
+        source_volumes = [MM_sample_vol, (15-MM_sample_vol)]
         left_pipette.pick_up_tip()
         left_pipette.consolidate(
             volume=source_volumes,
@@ -136,6 +160,9 @@ def run(protocol: protocol_api.ProtocolContext):
     else:
         rxndest2 = reactionPlate2.wells()[numberOfSamples]
 
+    #Pause to add Blunt/TA Ligation mastermix to well A4
+    protocol.pause(f"USER INTERVENTION: Please add {(numberOfSamples+2)*5} uL of Blunt/TA Ligation mastermix to well A4.")
+
     #Add 5uL of BLMM to second reaction wells
     # left_pipette.transfer(
     #     volume=5,
@@ -143,6 +170,9 @@ def run(protocol: protocol_api.ProtocolContext):
     #     dest=rxndest2, #24-48-96
     #     new_tip="always",
     # )
+    temperatureModule.set_temperature(celsius=4)
+    left_pipette.pick_up_tip()
+
     #consolidate water, barcode and end-prepped sample in tip, transfer to reaction prep plate and mix
     for reactionPrepWell, barcode0base in enumerate(fixed_barcodes):
         if numberOfSamples <= 24:
@@ -154,15 +184,31 @@ def run(protocol: protocol_api.ProtocolContext):
         else:
             rxnprepdest = reactionPrepPlate.wells()[reactionPrepWell]
             rxndest2_ind = reactionPlate2.wells()[reactionPrepWell]
-        left_pipette.pick_up_tip()
-        left_pipette.transfer(
-            volume=5,
-            source=tubeRack["A4"],
-            dest=rxndest2_ind,
-            new_tip="never",
-        )
-        left_pipette.drop_tip()
-        left_pipette.pick_up_tip()
+        left_pipette.aspirate(5, tubeRack["A4"], rate=2.0)
+        protocol.delay(seconds=1)
+        left_pipette.dispense(5, rxndest2_ind, rate=2.0)
+        protocol.delay(seconds=1)
+    
+    #consolidate water, barcode and end-prepped sample in tip, transfer to reaction prep plate and mix
+    for reactionPrepWell, barcode0base in enumerate(fixed_barcodes):
+        if numberOfSamples <= 24:
+            rxnprepdest = reactionPlate.wells()[reactionPrepWell+24]
+            rxndest2_ind = reactionPlate.wells()[reactionPrepWell+48]
+        elif numberOfSamples > 24 and numberOfSamples <= 48:
+            rxnprepdest = reactionPrepPlate.wells()[reactionPrepWell]
+            rxndest2_ind = reactionPlate.wells()[reactionPrepWell+48]
+        else:
+            rxnprepdest = reactionPrepPlate.wells()[reactionPrepWell]
+            rxndest2_ind = reactionPlate2.wells()[reactionPrepWell]
+        # left_pipette.transfer(
+        #     volume=5,
+        #     source=tubeRack["A4"],
+        #     dest=rxndest2_ind,
+        #     new_tip="never",
+        # )
+        if not reactionPrepWell == 0:
+            left_pipette.pick_up_tip()
+        left_pipette.well_bottom_clearance.aspirate = 0.2
         left_pipette.consolidate(
             volume=[12.0, 5.0, 3.0],
             source=[tubeRack["D4"], barcodePlate.wells()[barcode0base], reactionPlate.wells()[reactionPrepWell]],
@@ -170,6 +216,8 @@ def run(protocol: protocol_api.ProtocolContext):
             mix_after=(5,14),
             new_tip="never",
         )
+        left_pipette.well_bottom_clearance.aspirate = 1
+
     # transfer 5uL of barcode, sample mix to second reaction wells
         left_pipette.transfer(
         volume=5,
@@ -180,9 +228,11 @@ def run(protocol: protocol_api.ProtocolContext):
         )
         left_pipette.drop_tip()
 
-    #Incubate at room temperautre for 20 minutes (probably not needed as it should take more than 20 mins for above step to complete)
-    #protocol.delay(minutes=5)
-    protocol.pause("Up to EDTA addition")
+    #Incubate at room temperautre for 20 minutes (add 5 min for temperature to ramp ok)
+    temperatureModule.set_temperature(celsius=25)
+    protocol.delay(minutes=25)
+
+    #protocol.pause("Up to EDTA addition")
     #Distribute 1uL of EDTA to each well (write blue cap EDTA option into procedure), mix and pool into D6
     if blue_cap_EDTA == True:
         edta_vol = 2
@@ -208,12 +258,14 @@ def run(protocol: protocol_api.ProtocolContext):
             new_tip="never",
             mix_after=(5,7)
         )
+        left_pipette.well_bottom_clearance.aspirate = 0.2
         left_pipette.transfer(
             volume=consolidate_vol,
             source=rxndest2_ind,
             dest=tubeRack["D6"],
             new_tip="never",
         )
+        left_pipette.well_bottom_clearance.aspirate = 1
         left_pipette.drop_tip()
         
     #Add AXP beads to pool. Volume to add varies depending on number of samples in pool (4uL beads per sample)
