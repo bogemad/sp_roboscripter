@@ -85,10 +85,10 @@ def run(protocol: protocol_api.ProtocolContext):
 
 
     #Pause at beginning to give user information on volumes to load
-    protocol.comment("Please add {EPRB_vol} uL of End prep reaction buffer to well A1.")
-    protocol.comment("Please add {EPE_vol} uL of End prep enzyme to well A2.")
+    protocol.comment(f"Please add {EPRB_vol} uL of End prep reaction buffer to well A1.")
+    protocol.comment(f"Please add {EPE_vol} uL of End prep enzyme to well A2.")
     if dna_control_sample == True:
-        protocol.comment("Please add {DCS_vol} uL of Diluted DNA control sample to well C1.")
+        protocol.comment(f"Please add {DCS_vol} uL of Diluted DNA control sample to well C1.")
     protocol.pause(f"USER INTERVENTION: Add volumes listed above and start the protocol")
 
 
