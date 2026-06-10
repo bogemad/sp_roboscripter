@@ -33,7 +33,7 @@ jobs:
 
       - name: Make roboscripter and build executable with PyInstaller
         run: |
-          make_robotscripter.py sp_roboscripter_template_24-48-96.py sp_robotics_template_24-48-96.py sp_roboscripter_24-48-96.py && pyinstaller --onefile --windowed --name SPRoboscripter sp_roboscripter_24-48-96.py
+          python make_robotscripter.py sp_roboscripter_template_24-48-96.py sp_robotics_template_24-48-96.py sp_roboscripter_24-48-96.py && pyinstaller --onefile --windowed --name SPRoboscripter sp_roboscripter_24-48-96.py
 
       - name: Show build output
         run: |
