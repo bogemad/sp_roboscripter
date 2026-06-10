@@ -29,7 +29,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install Gooey pyinstaller
+          pip install six Gooey pyinstaller
 
       - name: Make roboscripter and build executable with PyInstaller
         run: |
